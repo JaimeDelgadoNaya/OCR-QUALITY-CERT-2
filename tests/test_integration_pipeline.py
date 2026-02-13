@@ -27,6 +27,18 @@ def _make_same_cert_pdf(path):
     doc.close()
 
 
+def _make_page_fraction_only_pdf(path):
+    doc = fitz.open()
+    p1 = doc.new_page()
+    p1.insert_text((72, 72), "Mill test certificate\nPage 1/2")
+    p2 = doc.new_page()
+    p2.insert_text((72, 72), "Supplement\nPage 2/2")
+    p3 = doc.new_page()
+    p3.insert_text((72, 72), "Mill test certificate\nPage 1/1")
+    doc.save(path)
+    doc.close()
+
+
 def test_process_pdf_splits_by_certificate(tmp_path):
     src = tmp_path / "fixture.pdf"
     out = tmp_path / "out"
@@ -65,3 +77,21 @@ def test_process_pdf_generates_unique_names_for_duplicate_groups(tmp_path):
     assert first_name != second_name
     assert second_name.endswith(".pdf")
     assert "__1" in second_name
+
+
+def test_process_pdf_splits_when_page_fraction_restarts_without_cert_id(tmp_path):
+    src = tmp_path / "fraction_only.pdf"
+    out = tmp_path / "out_fraction"
+    _make_page_fraction_only_pdf(str(src))
+
+    outputs = process_pdf(str(src), "GENCA", str(out), Config(ocr_mode="none"))
+
+    assert len(outputs) == 2
+    d1 = fitz.open(outputs[0])
+    d2 = fitz.open(outputs[1])
+    try:
+        assert d1.page_count == 2
+        assert d2.page_count == 1
+    finally:
+        d1.close()
+        d2.close()
